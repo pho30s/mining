@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Daily Rock Mining Game</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #1a1a2e 60%, #0f3460 100%);
+            color: #fff;
+            font-family: 'Orbitron', Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+        .rock-container {
+            position: relative;
+            width: 260px;
+            height: 260px;
+            margin: 40px auto 20px auto;
+        }
+        .rock {
+            width: 260px;
+            height: 260px;
+            cursor: url('https://raw.githubusercontent.com/pho30s/mining/main/minerals/pickaxe2.png') 16 16, pointer;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 2;
+            object-fit: contain;
+            background: none;
+        }
+        .smoke, .hit-effect, .pickaxe-anim {
+            position: absolute;
+            width: 32px;
+            height: 32px;
+            pointer-events: none;
+            opacity: 0;
+            z-index: 6;
+        }
+        @keyframes smokeFade {
+            0% { opacity: 0; }
+            30% { opacity: 0.7; }
+            100% { opacity: 0; }
+        }
+        @keyframes hitFade {
+            0% { opacity: 0; }
+            30% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+        @keyframes pickaxeSwing {
+            0% { opacity: 0; transform: translate(-50%,-50%) rotate(-30deg);}
+            20% { opacity: 1; transform: translate(-50%,-50%) rotate(-70deg);}
+            80% { opacity: 1; transform: translate(-50%,-50%) rotate(-70deg);}
+            100% { opacity: 0; transform: translate(-50%,-50%) rotate(-30deg);}
+        }
+    </style>
+</head>
+<body>
+    <h1>Mine the Big Rock!</h1>
+    <div class="rock-container">
+        <img class="rock" id="rock"
+            src="https://raw.githubusercontent.com/pho30s/mining/main/minerals/big%20rock.webp"
+            alt="Rock">
+        <img class="smoke" id="smoke"
+            src="https://raw.githubusercontent.com/pho30s/mining/main/minerals/smoke.webp"
+            alt="">
+        <img class="hit-effect" id="hitEffect"
+            src="https://raw.githubusercontent.com/pho30s/mining/main/minerals/hit%20effect.webp"
+            alt="">
+        <img class="pickaxe-anim" id="pickaxeAnim"
+            src="https://raw.githubusercontent.com/pho30s/mining/main/minerals/pickaxe2.png"
+            alt="">
+    </div>
+    <audio id="sfx1" src="https://raw.githubusercontent.com/pho30s/mining/main/minerals/sfx1.wav"></audio>
+    <audio id="sfx2" src="https://raw.githubusercontent.com/pho30s/mining/main/minerals/sfx2.wav"></audio>
+    <audio id="sfx3" src="https://raw.githubusercontent.com/pho30s/mining/main/minerals/sfx3.wav"></audio>
+    <audio id="sfx4" src="https://raw.githubusercontent.com/pho30s/mining/main/minerals/sfx4.wav"></audio>
+    <div class="result" id="result"></div>
+    <script>
+        // Mineral data with GitHub raw links
+        const minerals = [
+            { name: "Coal", chance: 50, img: "https://raw.githubusercontent.com/pho30s/mining/main/minerals/Coal.webp", clicks: 3 },
+            { name: "Iron", chance: 30, img: "https://raw.githubusercontent.com/pho30s/mining/main/minerals/Iron.webp", clicks: 4 },
+            { name: "Gold", chance: 10, img: "https://raw.githubusercontent.com/pho30s/mining/main/minerals/Gold.webp", clicks: 6 },
+            { name: "Diamond", chance: 5, img: "https://raw.githubusercontent.com/pho30s/mining/main/minerals/Diamond.webp", clicks: 8 },
+            { name: "Emerald", chance: 3, img: "https://raw.githubusercontent.com/pho30s/mining/main/minerals/Emerald.webp", clicks: 9 },
+            { name: "Metturk Logo", chance: 2, img: "https://raw.githubusercontent.com/pho30s/mining/main/minerals/Metturk.webp", clicks: 10 }
+        ];
+
+        const resultDiv = document.getElementById('result');
+        const rockDiv = document.getElementById('rock');
+        const smokeDiv = document.getElementById('smoke');
+        const mineSound = document.getElementById('sfx1');
+        const hitEffectDiv = document.getElementById('hitEffect');
+        const hitSound = document.getElementById('sfx2');
+        const pickaxeAnim = document.getElementById('pickaxeAnim');
+
+        const sfxList = [
+            document.getElementById('sfx1'),
+            document.getElementById('sfx2'),
+            document.getElementById('sfx3'),
+            document.getElementById('sfx4')
+        ];
+
+        let mining = false;
+        let mineral = null;
+        let clicksNeeded = 0;
+        let clicksDone = 0;
+
+        function pickMineral() {
+            let roll = Math.random() * 100;
+            let cumulative = 0;
+            let found = minerals[0];
+            for (let i = 0; i < minerals.length; i++) {
+                cumulative += minerals[i].chance;
+                if (roll < cumulative) {
+                    found = minerals[i];
+                    break;
+                }
+            }
+            return found;
+        }
+
+        function startMining() {
+            mineral = pickMineral();
+            clicksNeeded = mineral.clicks;
+            clicksDone = 0;
+            mining = true;
+            resultDiv.innerHTML = `<div>Mining... (${clicksNeeded} hits needed)</div>`;
+        }
+
+        function mineClick(event) {
+            if (!mining) {
+                startMining();
+            }
+
+            // Get click position relative to rock image
+            const rect = rockDiv.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+
+            // Position smoke and hit effect at click
+            smokeDiv.style.left = `${x - 16}px`;
+            smokeDiv.style.top = `${y - 16}px`;
+            smokeDiv.style.opacity = 1;
+            smokeDiv.style.animation = "smokeFade 0.4s forwards";
+
+            hitEffectDiv.style.left = `${x - 16}px`;
+            hitEffectDiv.style.top = `${y - 16}px`;
+            hitEffectDiv.style.opacity = 1;
+            hitEffectDiv.style.animation = "hitFade 0.3s forwards";
+
+            // Animate pickaxe at click position
+            pickaxeAnim.style.left = `${x}px`;
+            pickaxeAnim.style.top = `${y}px`;
+            pickaxeAnim.style.opacity = 1;
+            pickaxeAnim.style.animation = "pickaxeSwing 0.35s forwards";
+
+            setTimeout(() => {
+                smokeDiv.style.opacity = 0;
+                smokeDiv.style.animation = "";
+                hitEffectDiv.style.opacity = 0;
+                hitEffectDiv.style.animation = "";
+                pickaxeAnim.style.opacity = 0;
+                pickaxeAnim.style.animation = "";
+            }, 350);
+
+            // Play a random mining sound effect
+            const randomSfx = sfxList[Math.floor(Math.random() * sfxList.length)];
+            randomSfx.pause();
+            randomSfx.currentTime = 0;
+            randomSfx.load();
+            randomSfx.play();
+
+            clicksDone++;
+            resultDiv.innerHTML = `<div>Mining... (${clicksNeeded - clicksDone} hits left)</div>`;
+
+            if (clicksDone >= clicksNeeded) {
+                mining = false;
+                showResult(mineral);
+            }
+        }
+
+        function showResult(mineral) {
+            resultDiv.innerHTML = `
+                <div>Congrats! You mined <strong>${mineral.name}</strong>!</div>
+                <div>It has a <strong>${mineral.chance}%</strong> chance of dropping!</div>
+                <img class="mineral-img" src="${mineral.img}" alt="${mineral.name}">
+            `;
+        }
+
+        // Use event for click position
+        rockDiv.onclick = (event) => {
+            mineClick(event);
+        };
+    </script>
+</body>
+</html>
